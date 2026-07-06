@@ -23,10 +23,18 @@
             </div>
             
             <div class="flex-1 bg-white rounded shadow flex flex-col overflow-hidden">
-                <div class="bg-gray-200 px-4 py-2 font-mono text-xs text-gray-600 border-b">tp_exercice.py</div>
+                <div class="bg-gray-200 px-4 py-2 font-mono text-xs text-gray-600 border-b flex justify-between items-center">
+                    <span>tp_exercice.py</span>
+                    <button onclick="runCode()" class="bg-emerald-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-emerald-700 transition">▶ Exécuter le code</button>
+                </div>
                 <div class="flex-1 overflow-auto text-base">
                     <textarea id="code-editor">def filtrer_pairs(liste_nombres):&#10;    # Votre code ici&#10;    pass</textarea>
                 </div>
+            </div>
+
+            <div class="h-40 bg-slate-900 rounded shadow flex flex-col overflow-hidden font-mono text-sm text-gray-300">
+                <div class="bg-slate-800 px-4 py-1.5 text-xs text-gray-400 border-b border-slate-700">Console de sortie</div>
+                <pre id="console-output" class="flex-1 p-4 overflow-auto whitespace-pre-wrap text-emerald-400">Le résultat de votre code s'affichera ici après avoir cliqué sur Exécuter...</pre>
             </div>
         </div>
 
@@ -111,6 +119,36 @@
                 chatBox.innerHTML += `<div class="bg-red-50 p-3 rounded-lg text-red-700"><b>❌ Erreur :</b> Connexion au tuteur IA interrompue.</div>`;
             }
             chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        // 4. Fonction pour exécuter le code Python sur le serveur
+        async function runCode() {
+            const consoleOutput = document.getElementById("console-output");
+            consoleOutput.textContent = "Exécution en cours...";
+            consoleOutput.className = "flex-1 p-4 overflow-auto whitespace-pre-wrap text-gray-400";
+
+            const currentCode = editor.getValue();
+
+            try {
+                const response = await fetch("/api/run", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code: currentCode })
+                });
+                const data = await response.json();
+
+                // Affichage du résultat dans la console
+                consoleOutput.textContent = data.output;
+                
+                // Si le code a généré une erreur, on l'affiche en rouge, sinon en vert
+                if (data.status === "success") {
+                    consoleOutput.className = "flex-1 p-4 overflow-auto whitespace-pre-wrap text-emerald-400";
+                } else {
+                    consoleOutput.className = "flex-1 p-4 overflow-auto whitespace-pre-wrap text-red-400";
+                }
+            } catch (error) {
+                consoleOutput.textContent = "Erreur lors de la communication avec le serveur d'exécution.";
+                consoleOutput.className = "flex-1 p-4 overflow-auto whitespace-pre-wrap text-red-400";
+            }
         }
     </script>
 </body>
