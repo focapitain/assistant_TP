@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Plateforme de TP Assistée par IA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col font-sans">
+
+    <header class="bg-slate-800 text-white p-4 shadow-md">
+        <h1 class="text-xl font-bold">Espace d'Apprentissage Automatisé</h1>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        
+        <div class="w-2/3 p-6 flex flex-col space-y-4 overflow-y-auto">
+            <div class="bg-white p-4 rounded shadow border-l-4 border-emerald-500">
+                <h2 class="text-lg font-semibold mb-1 text-gray-800">Exercice de programmation</h2>
+                <p class="text-gray-600 text-sm">{{ consigne }}</p>
+            </div>
+            
+            <div class="flex-1 bg-white rounded shadow flex flex-col overflow-hidden">
+                <div class="bg-gray-200 px-4 py-2 font-mono text-xs text-gray-600 border-b">tp_exercice.py</div>
+                <div class="flex-1 overflow-auto text-base">
+                    <textarea id="code-editor">def filtrer_pairs(liste_nombres):&#10;    # Votre code ici&#10;    pass</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-1/3 bg-white border-l flex flex-col">
+            <div class="p-4 border-b bg-gray-50 font-semibold text-gray-700 shadow-sm">Assistance Tutorat IA</div>
+            
+            <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3 text-sm">
+                <div class="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500 text-gray-700">
+                    <b>🤖 Enseignant :</b> Bonjour ! Installe-toi et commence à coder. Si tu rencontres un problème ou une erreur Python, pose-moi une question ici.
+                </div>
+            </div>
+
+            <div class="p-4 border-t bg-gray-50 flex space-x-2">
+                <input type="text" id="chat-input" placeholder="Pose ta question ici..." class="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="sendQuestion()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition">Demander</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Initialiser le composant d'édition CodeMirror
+        var editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
+            mode: "python",
+            lineNumbers: true,
+            indentUnit: 4,
+            matchBrackets: true
+        });
+        editor.setSize("100%", "100%");
+
+        // 2. SURVEILLANCE DIRECTE : Interception de l'événement "paste" (copier-coller)
+        editor.on("paste", function(cm, e) {
+            let pastedText = (e.clipboardData || window.clipboardData).getData('text');
+            
+            // Afficher immédiatement l'alerte visuelle dissuasive à l'étudiant
+            const chatBox = document.getElementById("chat-box");
+            const alertDiv = document.createElement("div");
+            alertDiv.className = "bg-red-500 text-white p-3 rounded-lg font-bold shadow-lg border-l-4 border-red-700 my-2";
+            alertDiv.innerHTML = "⚠️ [SYSTEME] Copier-coller détecté ! Le copier-coller est interdit. Vous devez concevoir et taper votre algorithme vous-même.";
+            chatBox.appendChild(alertDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Envoyer discrètement le contenu collé au serveur FastAPI
+            fetch("/api/log-paste", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: pastedText })
+            });
+        });
+
+        // 3. Gestion de l'envoi des messages au Prof IA
+        async function sendQuestion() {
+            const input = document.getElementById("chat-input");
+            const question = input.value.trim();
+            if (!question) return;
+
+            input.value = "";
+            const chatBox = document.getElementById("chat-box");
+
+            // Affichage du message écrit par l'élève
+            chatBox.innerHTML += `<div class="bg-gray-100 p-3 rounded-lg text-gray-800"><b>👤 Élève :</b> ${question}</div>`;
+            chatBox.innerHTML += `<div id="loading" class="text-gray-400 italic p-1">🤖 L'enseignant réfléchit...</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Récupérer dynamiquement le code Python depuis l'éditeur de gauche
+            const currentCode = editor.getValue();
+
+            // Envoi de la requête asynchrone au serveur
+            const response = await fetch("/api/ask", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question: question, code: currentCode })
+            });
+            const data = await response.json();
+
+            // Retirer l'indicateur de chargement
+            document.getElementById("loading").remove();
+
+            // Affichage de la réponse pédagogique du modèle Gemini
+            if (data.status === "success") {
+                chatBox.innerHTML += `<div class="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500 text-gray-700"><b>🤖 Enseignant :</b> ${data.response}</div>`;
+            } else {
+                chatBox.innerHTML += `<div class="bg-red-50 p-3 rounded-lg text-red-700"><b>❌ Erreur :</b> Connexion au tuteur IA interrompue.</div>`;
+            }
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
