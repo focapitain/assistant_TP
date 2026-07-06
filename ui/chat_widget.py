@@ -97,7 +97,16 @@ class TPChatInterface:
         all_code = self.get_all_notebook_code()
         
         # On prépare le rapport pour l'IA Surveillante en incluant l'historique des collages
-        paste_report = "\\n".join([f"- \\"{p}\\"" for p in self.pastes_history]) if self.pastes_history else "Aucun copier-coller détecté."
+        if self.pastes_history:
+            paste_lines = []
+            for p in self.pastes_history:
+                # Nettoyer les retours à la ligne internes du texte copié pour le rapport
+                p_clean = p.replace('\n', ' ')
+                paste_lines.append(f'- "{p_clean}"')
+            paste_report = "\n".join(paste_lines)
+        else:
+            paste_report = "Aucun copier-coller détecté."
+            
         enriched_context = f"{self.context}\\n\\nHISTORIQUE DES COPIER-COLLER EFFECTUÉS PAR L'ÉLÈVE :\\n{paste_report}"
         
         with self.out:
